@@ -1,11 +1,12 @@
 use solana_sdk::signer::keypair:: Keypair;
-use client::{get_organisations, get_vote_topics, get_accounts,show_topics,show_organisations,create_organisation,create_vote_topic,request_air_drop};
+use client::{get_organisations, get_vote_topics, get_accounts,show_topics,show_organisations,create_organisation,join_organisation,create_vote_topic,vote,request_air_drop};
 use std::io;
 use  anchor_client::Cluster;
 use std::rc::Rc;
 use anchor_client::Client;
 use solana_sdk::signer::Signer;
-
+use solana_sdk::pubkey::Pubkey;
+use voting::{VoteTopic,Organisation};
 
 fn main() {
 
@@ -19,7 +20,9 @@ fn main() {
 
 
     let accounts=get_accounts();
-
+    let mut topics:Vec<(Pubkey,VoteTopic)>=get_vote_topics(accounts.clone(), &program);
+    let mut organisations:Vec<(Pubkey,Organisation)>=get_organisations(accounts.clone(), &program);
+    
     request_air_drop(&pkey, 1 as f64);
 
     let mut menu=true;
@@ -33,6 +36,8 @@ while menu{
     println!("2 - show organisations\n");
     println!("3 - create vote topic\n");
     println!("4 - create organisation\n");
+    println!("5 - vote\n");
+    println!("6 - join organisation\n");
 
     
     let mut choice = String::new();
@@ -45,7 +50,7 @@ while menu{
     match choice {
         0=>{menu = false;},
         1=>{
-            let topics = get_vote_topics(accounts.clone(), &program);
+           // topics = get_vote_topics(accounts.clone(), &program);
             show_topics(&topics);
         },
         2=>{
@@ -57,6 +62,12 @@ while menu{
         },
         4=>{
             create_organisation(Keypair::from_bytes(&key_bytes).unwrap());
+        },
+        5=>{
+            vote(&topics, &program);
+        },
+        6 =>{
+            join_organisation(&organisations, &program);
         }
         _=>{println!("no match");}
     }

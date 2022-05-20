@@ -12,7 +12,7 @@ use std::rc::Rc;
 use solana_sdk::signer::Signer;
 use solana_sdk::system_program;
 use std::io;
-use voting::{VoteTopic,Organisation};
+use voting::{VoteTopic,Organisation,VoteOption};
 
 
 
@@ -31,6 +31,85 @@ pub fn request_air_drop( pub_key: &Pubkey, amount_sol: f64) -> Result<Signature>
         }
     }
     Ok(sig)
+}
+
+pub fn join_organisation(accounts:&Vec<(Pubkey,Organisation)>,program: &anchor_client::Program){
+    let mut index = 0;
+    for organisation in accounts{
+        let (_pkey, o)=organisation;
+        println!("{:?} - {:?}",index,o.name);
+        index+=1;
+    } 
+    let mut choice = String::new();
+    io::stdin()
+        .read_line(&mut choice)
+        .expect("Failed to read line");
+    let choice: usize = choice.trim().parse().expect("Please type a number!");
+    println!("Sending transaction...");
+    let organisation_participant = Pubkey::find_program_address(&[&accounts[choice].0.to_bytes(),&program.payer().to_bytes()], &voting::ID).0;
+    let res =program
+    .request()
+    .accounts(voting::accounts::JoinOrganisation {
+        organisation_account:accounts[choice].0,
+        organisation_participant: organisation_participant,
+        user: program.payer(),
+        system_program: system_program::ID,
+    })
+    .args(voting::instruction::JoinOrganisation {  })
+    .send();
+    println!("{:?}",res);
+
+}
+
+pub fn vote(accounts:&Vec<(Pubkey,VoteTopic)>, program: &anchor_client::Program){
+    let mut options:Vec<(Pubkey,VoteOption)>=Vec::new();
+    let mut index = 0;
+    for account in accounts{
+        let (_pkey, t)=account;
+        println!("{:?} - {:?}",index,t.topic);
+        index+=1;
+    } 
+    let mut choice = String::new();
+    io::stdin()
+        .read_line(&mut choice)
+        .expect("Failed to read line");
+    let choice: usize = choice.trim().parse().expect("Please type a number!");
+
+    println!("Loading options...");
+
+    let (_pkey, t)=&accounts[choice];
+    for i in 0..accounts[choice].1.options_count{
+        let (addr, seed) = Pubkey::find_program_address(&[&_pkey.to_bytes(),&[i+1]], &voting::ID);
+        let accdata = program.account::<VoteOption>(addr).unwrap();
+        options.push((addr,accdata)); 
+    }
+    index = 0;
+    for option in options.clone(){
+        let (acc, data)=option;
+        println!("{:?} - {:?}",index,data.name);
+        index+=1;
+    }
+    let mut choice2 = String::new();
+    io::stdin()
+        .read_line(&mut choice2)
+        .expect("Failed to read line");
+    let choice2: usize = choice2.trim().parse().expect("Please type a number!");
+
+    println!("Sending transaction...");
+    let voter_account = Pubkey::find_program_address(&[&_pkey.to_bytes(),&program.payer().to_bytes()], &voting::ID).0;
+    let res =program
+    .request()
+    .accounts(voting::accounts::Vote {
+        vote_account: *_pkey,
+        option_account: options[choice2].0,
+        voter_account: voter_account,
+        user: program.payer(),
+        system_program: system_program::ID,
+    })
+    .args(voting::instruction::Vote {  })
+    .send();
+    println!("{:?}",res);
+
 }
 
 pub fn create_vote_topic(key:Keypair){
